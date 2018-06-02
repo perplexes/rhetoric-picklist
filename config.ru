@@ -49,25 +49,21 @@ run lambda { |env|
     orders = CSV.parse(req.params["orders"][:tempfile].read, headers: true)
     line_items = CSV.parse(req.params["line_items"][:tempfile].read, headers: true)
 
-    puts orders.inspect
-    puts line_items.inspect
-
     bags_by_sku = line_items.map.to_a.reject{|li| li["Item - SKU"].blank?}.inject({}) do |accum, li|
       accum[li["Item - SKU"]] ||= 0
       accum[li["Item - SKU"]] += li["Item - Qty"].to_i
       accum
     end
 
-
-    o_by_on = orders.map.to_a.index_by{|o| o["Order - Number"]};
-    li_by_on = line_items.map.to_a.group_by{|li| li["Order - Number"]};
+    order_by_order_number = orders.map.to_a.index_by{|o| o["Order - Number"]};
+    line_item_by_order_number = line_items.map.to_a.group_by{|li| li["Order - Number"]};
 
     boxes_by_sku = line_items.
     reject{|li| li["Item - SKU"].blank?}.
     flat_map do |li|
       value = [[
         li["Item - SKU"],
-        o_by_on[li["Order - Number"]]["Service - Package Type"]
+        order_by_order_number[li["Order - Number"]]["Service - Package Type"]
       ]]
       value * li["Item - Qty"].to_i
     end.count_by{|e| e}.inject({}) do |accum, ((size, package), count)|
@@ -107,9 +103,13 @@ run lambda { |env|
     end
 
     lines << ""
+    lines << "Multiple SKU Boxes, each in one X-Large S-10696"
+    lines << ""
 
+    # TODO: This will need to change to just "qty > 1" boxes and above list
+    # the bags that are going to multiple-qty-boxes
     orders.select{|o| o["Service - Package Type"] == "X-Large S-10696"}.each do |order|
-      lis = li_by_on[order["Order - Number"]]
+      lis = line_item_by_order_number[order["Order - Number"]]
       lines << "To: #{order["Ship To - Name"]}"
       lines << "Order: #{order["Order - Number"]}"
       lis.each do |li|

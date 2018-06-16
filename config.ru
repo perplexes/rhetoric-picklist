@@ -25,7 +25,7 @@ class String
   end
 end
 
-class Nil
+class NilClass
   def blank?
     true
   end
